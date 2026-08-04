@@ -5,6 +5,7 @@ import type {
   RichMarkdownContextMenuCommandPayload,
   RichMarkdownContextMenuTableTarget
 } from '../../../shared/editor/markdown/rich-markdown-context-menu'
+import type { WorkspaceWindowMetadata } from '../../../shared/workspace-window-metadata'
 
 export type UiWindowApi = {
   readClipboardText: (options?: ReadClipboardTextOptions) => Promise<string>
@@ -57,6 +58,7 @@ export type UiWindowApi = {
   getZoomLevel: () => number
   setZoomLevel: (level: number) => void
   syncTrafficLights: (zoomFactor: number) => void
+  setWorkspaceWindowMetadata: (metadata: WorkspaceWindowMetadata) => void
   setMarkdownEditorFocused: (focused: boolean) => void
   setRichMarkdownContextMenuTarget: (target: RichMarkdownContextMenuTableTarget | null) => void
   markPlainTextContextMenuTarget: () => void

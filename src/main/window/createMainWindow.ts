@@ -51,6 +51,7 @@ import { installWindowsPathRegistryChangeListener } from '../pty/environment/win
 import { recordAgentSessionRuntimeEnd } from '../runtime/agent-session/records/agent-session-runtime-end-record'
 import { installNativeUnloadCoordinator } from './renderer-relays/native-unload-coordinator'
 import { WEB_CONTENTS_MAX_LISTENERS_PER_EVENT } from './web-contents-listener-budget'
+import { installWorkspaceWindowMetadataListener } from './workspace-window-metadata'
 
 export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowLoadObserver): void {
   installRendererHangStackPolicy(
@@ -121,6 +122,7 @@ export function createMainWindow(
     { platform: process.platform, osRelease: release() },
     nativeTheme.prefersReducedTransparency
   )
+  const baseWindowTitle = opts?.title ?? 'Orca'
 
   const pumpHiddenFrames = shouldPumpHiddenWindowFrames(process.env, process.platform)
   const mainWindow = new BrowserWindow({
@@ -129,7 +131,7 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    title: baseWindowTitle,
     show: false,
     // Deliver the app-activating click on macOS instead of requiring a second click.
     acceptFirstMouse: true,
@@ -177,6 +179,10 @@ export function createMainWindow(
   mainWindow.webContents.setMaxListeners(WEB_CONTENTS_MAX_LISTENERS_PER_EVENT)
   const rendererWebContentsId = mainWindow.webContents.id
   installWindowsPathRegistryChangeListener(mainWindow)
+  const disposeWorkspaceWindowMetadata = installWorkspaceWindowMetadataListener(
+    mainWindow,
+    baseWindowTitle
+  )
   // Native paste fallback is privileged; trust only the top-level renderer.
   setTrustedUIRendererWebContentsId(rendererWebContentsId)
 
@@ -256,6 +262,7 @@ export function createMainWindow(
     browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
+    disposeWorkspaceWindowMetadata()
     state.dispose()
   })
 
