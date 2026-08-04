@@ -44,6 +44,7 @@ import { installMainWindowWebviewSecurity } from './main-window-webview-security
 import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
 import { installWindowsPathRegistryChangeListener } from '../pty/environment/windows-path-registry-change'
 import { recordAgentSessionRuntimeEnd } from '../runtime/agent-session/records/agent-session-runtime-end-record'
+import { installWorkspaceWindowMetadataListener } from './workspace-window-metadata'
 
 export { WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS }
 
@@ -109,6 +110,7 @@ export function createMainWindow(
     { platform: process.platform, osRelease: release() },
     nativeTheme.prefersReducedTransparency
   )
+  const baseWindowTitle = opts?.title ?? 'Orca'
 
   const pumpHiddenFrames = shouldPumpHiddenWindowFrames(process.env, process.platform)
   const mainWindow = new BrowserWindow({
@@ -117,7 +119,7 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    title: baseWindowTitle,
     show: false,
     // Deliver the app-activating click on macOS instead of requiring a second click.
     acceptFirstMouse: true,
@@ -163,6 +165,10 @@ export function createMainWindow(
   rememberWindowMaterial(mainWindow, windowMaterial)
   const rendererWebContentsId = mainWindow.webContents.id
   installWindowsPathRegistryChangeListener(mainWindow)
+  const disposeWorkspaceWindowMetadata = installWorkspaceWindowMetadataListener(
+    mainWindow,
+    baseWindowTitle
+  )
   // Native paste fallback is privileged; trust only the top-level renderer.
   setTrustedUIRendererWebContentsId(rendererWebContentsId)
 
@@ -239,6 +245,7 @@ export function createMainWindow(
     browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
+    disposeWorkspaceWindowMetadata()
     state.dispose()
   })
 
