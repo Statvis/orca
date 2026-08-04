@@ -33,6 +33,7 @@ import { installMainWindowWebviewSecurity } from './main-window-webview-security
 import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
 import { installWindowsPathRegistryChangeListener } from '../pty/windows-path-registry-change'
 import { recordAgentSessionRuntimeEnd } from '../runtime/agent-session-runtime-end-record'
+import { installWorkspaceWindowMetadataListener } from './workspace-window-metadata'
 
 export { WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS }
 
@@ -96,6 +97,7 @@ export function createMainWindow(
   // Only Windows acrylic is visible; macOS transparency adds WindowServer compositing behind opaque content (#8482). Creation-time only.
   const platformBlurOptions =
     blur && process.platform === 'win32' ? { backgroundMaterial: 'acrylic' as const } : {}
+  const baseWindowTitle = opts?.title ?? 'Orca'
 
   const mainWindow = new BrowserWindow({
     width: savedBounds?.width ?? defaultBounds.width,
@@ -103,7 +105,7 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    title: baseWindowTitle,
     show: false,
     // Deliver the app-activating click on macOS instead of requiring a second click.
     acceptFirstMouse: true,
@@ -140,6 +142,10 @@ export function createMainWindow(
   })
   const rendererWebContentsId = mainWindow.webContents.id
   installWindowsPathRegistryChangeListener(mainWindow)
+  const disposeWorkspaceWindowMetadata = installWorkspaceWindowMetadataListener(
+    mainWindow,
+    baseWindowTitle
+  )
   // Native paste fallback is privileged; trust only the top-level renderer.
   setTrustedUIRendererWebContentsId(rendererWebContentsId)
 
@@ -211,6 +217,7 @@ export function createMainWindow(
     browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
+    disposeWorkspaceWindowMetadata()
     state.dispose()
   })
 

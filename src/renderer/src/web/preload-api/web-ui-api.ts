@@ -288,6 +288,7 @@ export function createWebUiApi(): NonNullable<Partial<PreloadApi>['ui']> {
     // Why: a paired web client has no OS sleep signal; occlusion-driven visibilitychange already covers wake recovery.
     onSystemResumed: () => noopUnsubscribe,
     syncTrafficLights: () => {},
+    setWorkspaceWindowMetadata: () => {},
     setMarkdownEditorFocused: () => {},
     setRichMarkdownContextMenuTarget: () => {},
     markPlainTextContextMenuTarget: () => {},
