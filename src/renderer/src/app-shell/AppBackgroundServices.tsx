@@ -5,6 +5,7 @@ import { AiVaultTabTitleSyncGate } from '../components/AiVaultTabTitleSyncGate'
 import RetainedAgentsSyncGate from '../components/dashboard/RetainedAgentsSyncGate'
 import { WorkspacePortScanner } from '../components/ports/WorkspacePortScanner'
 import { SavedHostScopeWidenGate } from '../components/sidebar/worktree-list/listing/SavedHostScopeWidenGate'
+import { WorkspaceWindowMetadataSyncGate } from '../components/WorkspaceWindowMetadataSyncGate'
 import { MacosTccPromptNoticeHost } from '../hooks/MacosTccPromptNoticeHost'
 import { RemoteHostBrowserControlNoticeHost } from '../components/browser-pane/remote-host-control/RemoteHostBrowserControlNoticeHost'
 import { useAppStore } from '../store/index'
@@ -41,6 +42,7 @@ export function AppBackgroundServices(): React.JSX.Element {
       <RetainedAgentsSyncGate />
       <AiVaultTabTitleSyncGate />
       <SavedHostScopeWidenGate />
+      <WorkspaceWindowMetadataSyncGate />
       {dashboardPopoutEnabled ? (
         <Suspense fallback={null}>
           <DashboardPopoutBridge />
