@@ -16,6 +16,10 @@ import type {
   AgentPaneActivityReply,
   AgentPaneActivityRequest
 } from '../../../shared/agent-status/presentation/agent-list-status'
+import {
+  WORKSPACE_WINDOW_METADATA_CHANNEL,
+  type WorkspaceWindowMetadata
+} from '../../../shared/workspace-window-metadata'
 import type { PreloadApi } from '../../api-types'
 
 export const uiClipboardAndWindowControlsApi = {
@@ -162,6 +166,9 @@ export const uiClipboardAndWindowControlsApi = {
   setZoomLevel: (level: number): void => webFrame.setZoomLevel(level),
   syncTrafficLights: (zoomFactor: number): void =>
     ipcRenderer.send('ui:sync-traffic-lights', zoomFactor),
+  setWorkspaceWindowMetadata: (metadata: WorkspaceWindowMetadata): void => {
+    ipcRenderer.send(WORKSPACE_WINDOW_METADATA_CHANNEL, metadata)
+  },
   setMarkdownEditorFocused: (focused: boolean): void => {
     ipcRenderer.send('ui:setMarkdownEditorFocused', focused)
   },
