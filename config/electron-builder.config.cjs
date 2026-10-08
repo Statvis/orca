@@ -810,9 +810,10 @@ module.exports = {
   // on Intel Macs. The beforeBuild hook performs Orca's targeted rebuild and
   // returns false so electron-builder does not rebuild optional cpu-features.
   npmRebuild: true,
+  // Why: Statvis fork — stable/RC builds publish to and update from jordanyeo/orca.
   publish: {
     provider: 'github',
-    owner: 'stablyai',
+    owner: devChannelRepo ? 'stablyai' : 'jordanyeo',
     repo: devChannelRepo ?? 'orca',
     // Why draft on the main repo: `--publish always` otherwise creates a
     // public GitHub release as soon as the first platform uploads, and
