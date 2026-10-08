@@ -1,4 +1,5 @@
 import { compareAppVersions, isValidAppVersion } from './app-version'
+import { STATVIS_FORK_RELEASE_REPO } from './statvis-fork'
 
 export type ReleaseChannel = 'stable' | 'rc' | 'hourly' | 'daily' | 'adhoc'
 
@@ -32,8 +33,8 @@ const DEDICATED_REPO_CHANNELS = ['hourly', 'daily', 'adhoc'] as const
 export type DedicatedRepoChannel = (typeof DEDICATED_REPO_CHANNELS)[number]
 
 const CHANNEL_RELEASE_REPOS: Record<ReleaseChannel, string> = {
-  stable: MAIN_RELEASE_REPO,
-  rc: MAIN_RELEASE_REPO,
+  stable: STATVIS_FORK_RELEASE_REPO,
+  rc: STATVIS_FORK_RELEASE_REPO,
   hourly: HOURLY_RELEASE_REPO,
   daily: DAILY_RELEASE_REPO,
   adhoc: ADHOC_RELEASE_REPO
@@ -228,7 +229,7 @@ export function getVersionChannel(version: string): ReleaseChannel | null {
  */
 export function getReleaseNotesUrlForVersion(version: string | null): string {
   const channel = version ? getVersionChannel(version) : null
-  const repo = channel ? getReleaseRepoForChannel(channel) : MAIN_RELEASE_REPO
+  const repo = channel ? getReleaseRepoForChannel(channel) : STATVIS_FORK_RELEASE_REPO
   return version
     ? `https://github.com/${repo}/releases/tag/v${normalizeTagToVersion(version)}`
     : `https://github.com/${repo}/releases`

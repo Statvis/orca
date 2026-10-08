@@ -17,6 +17,7 @@ import { useShortcutLabel } from '../hooks/useShortcutLabel'
 import { useAppStore } from '../store'
 import { hasCustomTitleBar, hasMacTrafficLights } from './app-window-chrome'
 import type { AppChromeLayout } from './use-app-chrome-layout'
+import { StatvisForkBadge } from './StatvisForkBadge'
 
 /**
  * The titlebar's left cluster: window chrome padding, app name, sidebar toggle, and the
@@ -66,6 +67,7 @@ export function TitlebarLeftControls({ layout }: { layout: AppChromeLayout }): R
         ) : (
           <div className="pl-2" />
         )}
+        <StatvisForkBadge />
         {layout.showSidebar && !hasCustomTitleBar && layout.showTitlebarAppName && (
           <ContextMenu>
             <ContextMenuTrigger asChild>
