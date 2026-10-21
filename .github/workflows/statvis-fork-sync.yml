@@ -1,0 +1,126 @@
+name: Statvis fork sync
+
+# When stablyai/orca ships a new stable release, replay the fork's commits
+# (statvis/main) onto that release tag, tag it, open a draft release, and
+# dispatch statvis-fork-build.yml on statvis/main to build and publish it.
+#
+# Why this lives on its own default branch: scheduled workflows run from the
+# default branch, and upstream's scheduled jobs must never run in the fork.
+
+run-name: Statvis fork sync ${{ inputs.tag || '(latest upstream)' }}
+
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream stable tag to build (default is the newest upstream stable release)
+        required: false
+        type: string
+      rebuild:
+        description: Rebuild and replace the fork release even if it already exists
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: statvis-fork-sync
+  cancel-in-progress: false
+
+env:
+  FORK_BRANCH: statvis/main
+  UPSTREAM_REPO: stablyai/orca
+
+jobs:
+  sync:
+    if: github.repository == 'jordanyeo/orca'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Resolve upstream release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          REBUILD: ${{ inputs.rebuild }}
+        run: |
+          set -euo pipefail
+          tag="${REQUESTED_TAG:-$(gh api "repos/$UPSTREAM_REPO/releases/latest" --jq .tag_name)}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$tag is not a stable release tag"
+            exit 1
+          fi
+          # Why any existing release blocks: a draft means a build for this tag is in flight or failed.
+          exists=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json tagName >/dev/null 2>&1 && echo true || echo false)
+          build=true
+          if [[ "$exists" == "true" && "$REBUILD" != "true" ]]; then
+            build=false
+          fi
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "build=$build" >>"$GITHUB_OUTPUT"
+          echo "Upstream $tag (fork release exists: $exists) -> build=$build"
+
+      - name: Checkout fork branch
+        if: steps.resolve.outputs.build == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.FORK_BRANCH }}
+          fetch-depth: 0
+          filter: blob:none
+          # Why a deploy key: GITHUB_TOKEN may not push commits that change upstream's workflow files.
+          ssh-key: ${{ secrets.SV_DEPLOY_KEY }}
+
+      - name: Rebase fork commits onto the upstream release
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name 'Statvis fork bot'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          # Why force-fetch into refs/tags: the fork's release tags reuse upstream names but
+          # point at fork commits; base detection must see upstream's tag commits.
+          git fetch --quiet --no-tags --filter=blob:none "https://github.com/$UPSTREAM_REPO.git" '+refs/tags/v*:refs/tags/v*'
+          old_tip=$(git rev-parse HEAD)
+          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' HEAD)
+          patch_count=$(git rev-list --count "$base..HEAD")
+          echo "Fork is $patch_count commit(s) on top of upstream $base"
+          if (( patch_count == 0 || patch_count > 50 )); then
+            echo "::error::Unexpected fork commit count ($patch_count) above $base; refusing to rebase"
+            exit 1
+          fi
+          if [[ "$base" != "$TAG" ]]; then
+            if ! git rebase --onto "refs/tags/$TAG" "$base" HEAD; then
+              git diff --name-only --diff-filter=U | sed 's/^/::error::conflict: /'
+              git rebase --abort
+              echo "::error::Fork commits conflict with upstream $TAG. Rebase $FORK_BRANCH onto $TAG locally, resolve, force-push, then re-run this workflow."
+              exit 1
+            fi
+            git push --force-with-lease="$FORK_BRANCH:$old_tip" origin "HEAD:refs/heads/$FORK_BRANCH"
+          fi
+          git push --force origin "HEAD:refs/tags/$TAG"
+          {
+            echo "Statvis fork of Orca, built from upstream [$TAG](https://github.com/$UPSTREAM_REPO/releases/tag/$TAG) plus:"
+            echo
+            git log --reverse --format='- %s' "refs/tags/$TAG..HEAD"
+            echo
+            echo "Signed and notarized with the Statvis Developer ID. Installed fork builds update from this repo only."
+          } >"$RUNNER_TEMP/notes.md"
+
+      - name: Create draft release and dispatch the build
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Why: a rebuild replaces the old release so its assets cannot mix with the new ones.
+          gh release delete "$TAG" -R "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "Orca $TAG (Statvis fork)" --notes-file "$RUNNER_TEMP/notes.md"
+          gh workflow run statvis-fork-build.yml -R "$GITHUB_REPOSITORY" --ref "$FORK_BRANCH" -f tag="$TAG"
