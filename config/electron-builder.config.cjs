@@ -235,7 +235,8 @@ const macUsageDescriptions = {
   ...MACOS_FOLDER_USAGE_DESCRIPTIONS
 }
 // Developer ID team that signs every release-channel mac build.
-const ORCA_MAC_TEAM_ID = '6CX3WHS9HZ'
+// Why: Statvis fork builds are signed with the Statvis Analytics Developer ID.
+const ORCA_MAC_TEAM_ID = 'A43UMQC37J'
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
