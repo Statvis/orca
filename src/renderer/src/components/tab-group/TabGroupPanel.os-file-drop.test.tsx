@@ -22,6 +22,9 @@ vi.mock('../editor/editor-dropped-file-open', () => ({
 }))
 vi.mock('../tab-bar/TabBar', () => ({ default: () => null }))
 vi.mock('../tab-bar/TabBarQuickCommandsButton', () => ({ TabBarQuickCommandsButton: () => null }))
+vi.mock('../tab-bar/StatvisRevealWorktreeButton', () => ({
+  StatvisRevealWorktreeButton: () => null
+}))
 vi.mock('@/lib/pane-manager/client-hosted-browser-row-state', () => ({
   useClientHostedBrowserRows: () => []
 }))
