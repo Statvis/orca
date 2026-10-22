@@ -692,14 +692,15 @@ module.exports = {
         to: 'MacOS/orca-keyboard-layout'
       }
     ],
+    // Why arm64 only: Statvis has no Intel Macs, and explicit target arches override --arm64.
     target: [
       {
         target: 'dmg',
-        arch: ['x64', 'arm64']
+        arch: ['arm64']
       },
       {
         target: 'zip',
-        arch: ['x64', 'arm64']
+        arch: ['arm64']
       }
     ]
   },
