@@ -124,6 +124,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
+          # Why: the first Rosetta boot of the x64 terminal host outlasts the 20s default on macos-15.
+          ORCA_TERMINAL_HOST_BOOT_TIMEOUT_MS: '120000'
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
