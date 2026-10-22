@@ -55,15 +55,21 @@ jobs:
             echo "::error::$tag is not a stable release tag"
             exit 1
           fi
-          # Why any existing release blocks: a draft means a build for this tag is in flight or failed.
-          exists=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json tagName >/dev/null 2>&1 && echo true || echo false)
+          state=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json isDraft,createdAt \
+            --jq 'if .isDraft then "draft \(.createdAt)" else "published" end' 2>/dev/null || echo missing)
           build=true
-          if [[ "$exists" == "true" && "$REBUILD" != "true" ]]; then
+          if [[ "$state" == published && "$REBUILD" != "true" ]]; then
             build=false
+          elif [[ "$state" == draft* ]]; then
+            # Why 3h: builds time out at 2.5h, so an older draft is a build that died (e.g. no runner).
+            age=$(( $(date +%s) - $(date -d "${state#draft }" +%s) ))
+            if (( age < 3 * 3600 )); then
+              build=false
+            fi
           fi
           echo "tag=$tag" >>"$GITHUB_OUTPUT"
           echo "build=$build" >>"$GITHUB_OUTPUT"
-          echo "Upstream $tag (fork release exists: $exists) -> build=$build"
+          echo "Upstream $tag (fork release: $state) -> build=$build"
 
       - name: Checkout fork branch
         if: steps.resolve.outputs.build == 'true'
