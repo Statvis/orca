@@ -78,14 +78,13 @@ jobs:
           restore-keys: |
             electron-builder-mac-
 
-      # Why both CPUs: x64 and arm64 are both packaged from this arm64 runner.
       - name: Install dependencies
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 3
           retry_wait_seconds: 30
-          command: pnpm install --frozen-lockfile --cpu=current,x64,arm64
+          command: pnpm install --frozen-lockfile
 
       - uses: ./.github/actions/install-mobile-dependencies
 
@@ -120,12 +119,11 @@ jobs:
           timeout_minutes: 75
           max_attempts: 2
           retry_wait_seconds: 30
-          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 darwin-x64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 node config/scripts/build-mac-notarization-overlap.mjs --publish always --draft
+          # Why plain electron-builder: Statvis ships Apple silicon only, and upstream's overlap script requires both arches.
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --arm64 --publish always -c.publish.releaseType=draft
         env:
           GH_TOKEN: ${{ github.token }}
           ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
-          # Why: the first Rosetta boot of the x64 terminal host outlasts the 20s default on macos-15.
-          ORCA_TERMINAL_HOST_BOOT_TIMEOUT_MS: '120000'
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -139,7 +137,7 @@ jobs:
           set -euo pipefail
           assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           echo "$assets"
-          for required in latest-mac.yml orca-macos-arm64.dmg orca-macos-x64.dmg; do
+          for required in latest-mac.yml orca-macos-arm64.dmg; do
             grep -qx "$required" <<<"$assets" || { echo "::error::release is missing $required"; exit 1; }
           done
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
