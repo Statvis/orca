@@ -120,7 +120,7 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           # Why plain electron-builder: Statvis ships Apple silicon only, and upstream's overlap script requires both arches.
-          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --arm64 --publish always -c.publish.releaseType=draft
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always -c.publish.releaseType=draft
         env:
           GH_TOKEN: ${{ github.token }}
           ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
