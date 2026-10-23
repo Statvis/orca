@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   orcad-template:
-    if: github.repository == 'jordanyeo/orca'
+    if: github.repository == 'Statvis/orca'
     permissions:
       contents: read
       actions: read
