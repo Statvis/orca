@@ -2,7 +2,7 @@ import { FolderOpen } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { useRepoById, useWorktreeById } from '@/store/selectors'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { runtimeEnvironmentIdWithLegacyFallbackUnlessTwin } from '@/lib/worktree-runtime-owner'
+import { runtimeEnvironmentIdOrLocalUnlessTwin } from '@/lib/worktree-runtime-owner'
 import { getWorkspaceFileRevealOwner, revealInFileManager } from '@/lib/reveal-in-file-manager'
 import {
   getLocalPathOpenOwnerHostId,
@@ -29,7 +29,7 @@ export function StatvisRevealWorktreeButton({
   const worktree = useWorktreeById(worktreeId)
   const repo = useRepoById(worktree?.repoId ?? null)
   const runtimeEnvironmentId = useAppStore((s) =>
-    runtimeEnvironmentIdWithLegacyFallbackUnlessTwin(s, worktreeId)
+    runtimeEnvironmentIdOrLocalUnlessTwin(s, worktreeId)
   )
   // Why: a folder workspace has no repo row, so only the catalog owner names its SSH host.
   const owner = useAppStore((s) =>
