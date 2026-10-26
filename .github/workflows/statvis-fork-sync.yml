@@ -66,10 +66,26 @@ jobs:
             age=$(( $(date +%s) - $(date -d "${state#draft }" +%s) ))
             if (( age < 3 * 3600 )); then
               build=false
+            else
+              # Why cancel: a build stuck waiting for a runner holds the per-tag concurrency
+              # group, so the retry would queue behind it forever (v1.4.241).
+              gh run list -R "$GITHUB_REPOSITORY" --workflow statvis-fork-build.yml --limit 20 \
+                --json databaseId,status,displayTitle \
+                --jq ".[] | select(.status != \"completed\" and .displayTitle == \"Statvis fork build $tag\") | .databaseId" |
+                while read -r id; do gh run cancel "$id" -R "$GITHUB_REPOSITORY" || true; done
+            fi
+          fi
+          overdue=false
+          # Manual runs are watched by whoever started them.
+          if [[ "$build" == true && "$state" != published && -z "$REQUESTED_TAG" ]]; then
+            shipped=$(gh api "repos/$UPSTREAM_REPO/releases/tags/$tag" --jq .published_at)
+            if (( $(date +%s) - $(date -d "$shipped" +%s) > 8 * 3600 )); then
+              overdue=true
             fi
           fi
           echo "tag=$tag" >>"$GITHUB_OUTPUT"
           echo "build=$build" >>"$GITHUB_OUTPUT"
+          echo "overdue=$overdue" >>"$GITHUB_OUTPUT"
           echo "Upstream $tag (fork release: $state) -> build=$build"
 
       - name: Checkout fork branch
@@ -160,6 +176,13 @@ jobs:
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "Orca $TAG (Statvis fork)" --notes-file "$RUNNER_TEMP/notes.md"
           gh workflow run statvis-fork-build.yml -R "$GITHUB_REPOSITORY" --ref "$FORK_BRANCH" -f tag="$TAG"
+
+      # Why: retries alone hide a build that keeps dying; the next successful publish closes the issue.
+      - name: Flag a release that is overdue
+        if: steps.resolve.outputs.overdue == 'true'
+        run: |
+          echo "::error::Upstream ${{ steps.resolve.outputs.tag }} shipped over 8h ago and the fork release still isn't published; check the fork build runs."
+          exit 1
 
       - name: Open a tracking issue on failure
         if: failure()

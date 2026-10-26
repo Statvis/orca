@@ -33,6 +33,8 @@ jobs:
     uses: ./.github/workflows/qualified-orcad-template.yml
     with:
       ref: ${{ github.sha }}
+      # Upstream defaults to Blacksmith runners, which Statvis doesn't have; jobs would queue forever.
+      fast_runners: false
 
   build-mac:
     needs: orcad-template
