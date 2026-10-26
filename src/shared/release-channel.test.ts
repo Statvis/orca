@@ -39,8 +39,8 @@ describe('release channel', () => {
     expect(getReleaseRepoForChannel('daily')).toBe('stablyai/orca-daily')
     // Keep unlanded adhoc branch builds away from users following main’s hourly channel.
     expect(getReleaseRepoForChannel('adhoc')).toBe('stablyai/orca-adhoc')
-    expect(getReleaseRepoForChannel('stable')).toBe('Statvis/orca')
-    expect(getReleaseRepoForChannel('rc')).toBe('Statvis/orca')
+    expect(getReleaseRepoForChannel('stable')).toBe('stablyai/orca')
+    expect(getReleaseRepoForChannel('rc')).toBe('stablyai/orca')
   })
 
   it('marks exactly the dev channels as having their own repo', () => {
@@ -60,15 +60,15 @@ describe('release channel', () => {
       'https://github.com/stablyai/orca-daily/releases/tag/v1.4.160-daily.202607281300'
     )
     expect(getReleaseNotesUrlForVersion('1.4.160')).toBe(
-      'https://github.com/Statvis/orca/releases/tag/v1.4.160'
+      'https://github.com/stablyai/orca/releases/tag/v1.4.160'
     )
     expect(getReleaseNotesUrlForVersion('v1.4.160-rc.3')).toBe(
-      'https://github.com/Statvis/orca/releases/tag/v1.4.160-rc.3'
+      'https://github.com/stablyai/orca/releases/tag/v1.4.160-rc.3'
     )
     expect(getReleaseNotesUrlForVersion('1.4.160-adhoc.20260728140533')).toBe(
       'https://github.com/stablyai/orca-adhoc/releases/tag/v1.4.160-adhoc.20260728140533'
     )
-    expect(getReleaseNotesUrlForVersion(null)).toBe('https://github.com/Statvis/orca/releases')
+    expect(getReleaseNotesUrlForVersion(null)).toBe('https://github.com/stablyai/orca/releases')
   })
 
   it('round-trips an hourly version stamp as UTC', () => {

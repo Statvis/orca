@@ -104,6 +104,10 @@ jobs:
       - name: Stamp SV badge onto app icons
         run: bash config/statvis-fork/stamp-sv-icons.sh
 
+      # Why at build time: the repo keeps upstream's default so upstream tests and code stay untouched.
+      - name: Point the updater at Statvis/orca
+        run: bash config/statvis-fork/set-release-repo.sh "$GITHUB_REPOSITORY"
+
       # Why no ORCA_BUILD_IDENTITY / PostHog key: fork builds must not report into upstream telemetry.
       - name: Build app
         run: pnpm run build:release
@@ -121,7 +125,7 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           # Why plain electron-builder: Statvis ships Apple silicon only, and upstream's overlap script requires both arches.
-          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always -c.publish.releaseType=draft
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always -c.publish.releaseType=draft -c.publish.owner=${{ github.repository_owner }}
         env:
           GH_TOKEN: ${{ github.token }}
           ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
@@ -130,6 +134,19 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Why: an app still pointing at upstream would silently never update (upstream builds fail our signature check).
+      - name: Verify the app updates from this repo
+        run: |
+          set -euo pipefail
+          resources=dist/mac-arm64/Orca.app/Contents/Resources
+          grep -qx "owner: $GITHUB_REPOSITORY_OWNER" "$resources/app-update.yml" || { cat "$resources/app-update.yml"; echo "::error::app-update.yml does not publish from $GITHUB_REPOSITORY_OWNER"; exit 1; }
+          LC_ALL=C grep -rqF "STATVIS_FORK_RELEASE_REPO = '$GITHUB_REPOSITORY'" "$resources/app.asar.unpacked" "$resources/app.asar" \
+            || { echo "::error::the packaged app does not update from $GITHUB_REPOSITORY"; exit 1; }
+          if LC_ALL=C grep -rqF "STATVIS_FORK_RELEASE_REPO = 'stablyai/orca'" "$resources/app.asar.unpacked" "$resources/app.asar"; then
+            echo "::error::the packaged app still updates from stablyai/orca"; exit 1
+          fi
+          echo "Packaged app updates from $GITHUB_REPOSITORY."
 
       - name: Verify updater manifest and publish release
         env:

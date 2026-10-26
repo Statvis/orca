@@ -692,10 +692,9 @@ module.exports = {
   // Dual-arch builds need target node-pty rebuilds or Intel Macs get arm64 binaries and posix_spawnp failure.
   // beforeBuild performs targeted rebuild then returns false to skip optional cpu-features.
   npmRebuild: true,
-  // Why: Statvis fork — stable/RC builds publish to and update from Statvis/orca.
   publish: {
     provider: 'github',
-    owner: devChannelRepo ? 'stablyai' : 'Statvis',
+    owner: 'stablyai',
     repo: devChannelRepo ?? 'orca',
     // Keep main-repo releases draft until release-cut verifies all assets; early --publish always would expose missing Windows installers.
     releaseType: devChannelRepo ? 'prerelease' : 'draft'
