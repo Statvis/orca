@@ -27,6 +27,7 @@ on:
 permissions:
   actions: write
   contents: write
+  issues: write
 
 concurrency:
   group: statvis-fork-sync
@@ -77,7 +78,6 @@ jobs:
         with:
           ref: ${{ env.FORK_BRANCH }}
           fetch-depth: 0
-          filter: blob:none
           # Why a deploy key: GITHUB_TOKEN may not push commits that change upstream's workflow files.
           ssh-key: ${{ secrets.SV_DEPLOY_KEY }}
 
@@ -91,7 +91,7 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           # Why force-fetch into refs/tags: the fork's release tags reuse upstream names but
           # point at fork commits; base detection must see upstream's tag commits.
-          git fetch --quiet --no-tags --filter=blob:none "https://github.com/$UPSTREAM_REPO.git" '+refs/tags/v*:refs/tags/v*'
+          git fetch --quiet --no-tags "https://github.com/$UPSTREAM_REPO.git" '+refs/tags/v*:refs/tags/v*'
           old_tip=$(git rev-parse HEAD)
           base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' HEAD)
           patch_count=$(git rev-list --count "$base..HEAD")
@@ -130,3 +130,17 @@ jobs:
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --verify-tag \
             --title "Orca $TAG (Statvis fork)" --notes-file "$RUNNER_TEMP/notes.md"
           gh workflow run statvis-fork-build.yml -R "$GITHUB_REPOSITORY" --ref "$FORK_BRANCH" -f tag="$TAG"
+
+      - name: Open a tracking issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Why one open issue: a conflict repeats every sync, and each run must not notify again.
+          title='Statvis fork automation is failing'
+          open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [[ -z "$open" ]]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --assignee jordanyeo \
+              --body "The fork stopped updating: $RUN_URL. Fix the cause (often a rebase conflict or an upstream rename), then re-run the sync. The next successful publish closes this issue."
+          fi

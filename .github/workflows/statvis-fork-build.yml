@@ -18,6 +18,7 @@ on:
 permissions:
   actions: read
   contents: write
+  issues: write
 
 concurrency:
   group: statvis-fork-build-${{ inputs.tag }}
@@ -141,3 +142,31 @@ jobs:
             grep -qx "$required" <<<"$assets" || { echo "::error::release is missing $required"; exit 1; }
           done
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
+
+      - name: Close the failure tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title='Statvis fork automation is failing'
+          for n in $(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[].number'); do
+            gh issue close "$n" -R "$GITHUB_REPOSITORY" --comment "Recovered: published $TAG."
+          done
+
+  report-failure:
+    needs: [orcad-template, build-mac]
+    if: failure() && github.repository == 'Statvis/orca'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open a tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Why one open issue: the sync retries stale drafts, and each retry must not notify again.
+          title='Statvis fork automation is failing'
+          open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [[ -z "$open" ]]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --assignee jordanyeo \
+              --body "The fork build for ${{ inputs.tag }} failed: $RUN_URL. Fix the cause (often an upstream rename the fork code still uses), then re-run the sync with rebuild. The next successful publish closes this issue."
+          fi
