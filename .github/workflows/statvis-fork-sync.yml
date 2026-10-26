@@ -41,7 +41,7 @@ jobs:
   sync:
     if: github.repository == 'Statvis/orca'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Resolve upstream release
         id: resolve
@@ -82,6 +82,7 @@ jobs:
           ssh-key: ${{ secrets.SV_DEPLOY_KEY }}
 
       - name: Rebase fork commits onto the upstream release
+        id: rebase
         if: steps.resolve.outputs.build == 'true'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
@@ -107,9 +108,9 @@ jobs:
               echo "::error::Fork commits conflict with upstream $TAG. Rebase $FORK_BRANCH onto $TAG locally, resolve, force-push, then re-run this workflow."
               exit 1
             fi
-            git push --force-with-lease="$FORK_BRANCH:$old_tip" origin "HEAD:refs/heads/$FORK_BRANCH"
           fi
-          git push --force origin "HEAD:refs/tags/$TAG"
+          echo "old_tip=$old_tip" >>"$GITHUB_OUTPUT"
+          echo "rebased=$([[ "$base" != "$TAG" ]] && echo true || echo false)" >>"$GITHUB_OUTPUT"
           {
             echo "Statvis fork of Orca, built from upstream [$TAG](https://github.com/$UPSTREAM_REPO/releases/tag/$TAG) plus:"
             echo
@@ -117,6 +118,35 @@ jobs:
             echo
             echo "Signed and notarized with the Statvis Developer ID. Installed fork builds update from this repo only."
           } >"$RUNNER_TEMP/notes.md"
+
+      # Why before pushing: an upstream rename can break a cleanly rebased fork (v1.4.238); a failed
+      # check here leaves statvis/main and the published release untouched.
+      - name: Install dependencies to verify the rebased fork
+        if: steps.resolve.outputs.build == 'true'
+        uses: ./.github/actions/install-node-dependencies
+
+      - name: Typecheck the rebased fork
+        if: steps.resolve.outputs.build == 'true'
+        run: pnpm run typecheck
+
+      - name: Bundle the rebased fork
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm run build:electron-vite
+
+      - name: Push the rebased fork and its release tag
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          OLD_TIP: ${{ steps.rebase.outputs.old_tip }}
+          REBASED: ${{ steps.rebase.outputs.rebased }}
+        run: |
+          set -euo pipefail
+          if [[ "$REBASED" == true ]]; then
+            git push --force-with-lease="$FORK_BRANCH:$OLD_TIP" origin "HEAD:refs/heads/$FORK_BRANCH"
+          fi
+          git push --force origin "HEAD:refs/tags/$TAG"
 
       - name: Create draft release and dispatch the build
         if: steps.resolve.outputs.build == 'true'
