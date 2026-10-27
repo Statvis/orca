@@ -10,6 +10,7 @@ import { SkillUpdateStatusSegment } from './updates/SkillUpdateStatusSegment'
 import { AgentCliUpdateStatusSegment } from './updates/AgentCliUpdateStatusSegment'
 import { NativeChatResumeStatusSegment } from './NativeChatResumeStatusSegment'
 import { CaffeinateStatusSegment } from './CaffeinateStatusSegment'
+import { StatvisCiSlotsStatusSegment } from './StatvisCiSlotsStatusSegment'
 import { PluginsStatusSegment } from './plugins/PluginsStatusSegment'
 import { PluginStatusBarItems } from './plugins/PluginStatusBarItems'
 import { RemoteServerUpdateStatusSegment } from './updates/RemoteServerUpdateStatusSegment'
@@ -107,6 +108,7 @@ export function StatusBarSurface({
         className="-mx-1 flex min-w-0 items-center self-stretch overflow-x-auto scrollbar-none"
       >
         <div className="flex w-max items-center gap-3 px-1">
+          <StatvisCiSlotsStatusSegment />
           {!isPairedWebClientWindow() ? (
             <>
               <PluginsStatusSegment />

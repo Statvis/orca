@@ -37,6 +37,7 @@ import { starNagApi } from './api/onboarding/star-nag-bridge'
 import { diagnosticsApi } from './api/diagnostics/diagnostics-bridge'
 import { settingsApi } from './api/preferences/settings-bridge'
 import { agentAwakeApi } from './api/agent-status/agent-awake-bridge'
+import { statvisCiSlotsApi } from './api/statvis-ci-slots-bridge'
 import { localhostWorktreeLabelsApi } from './api/workspaces/localhost-worktree-labels-bridge'
 import { keybindingsApi } from './api/preferences/keybindings-bridge'
 import { codexAccountsApi } from './api/agent-accounts/codex-accounts-bridge'
@@ -152,6 +153,7 @@ const api = {
   diagnostics: diagnosticsApi,
   settings: settingsApi,
   agentAwake: agentAwakeApi,
+  statvisCiSlots: statvisCiSlotsApi,
   localhostWorktreeLabels: localhostWorktreeLabelsApi,
   keybindings: keybindingsApi,
   codexAccounts: codexAccountsApi,
