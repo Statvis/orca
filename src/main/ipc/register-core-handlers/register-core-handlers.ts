@@ -24,6 +24,7 @@ import { registerCrashReportingHandlers } from '../crash-reporting/crash-reporti
 import { registerExportHandlers } from '../export'
 import { registerStatsHandlers } from '../stats'
 import { registerMemoryHandlers } from '../memory'
+import { registerStatvisCiSlotsHandlers } from '../../statvis-ci-slots'
 import { registerRateLimitHandlers } from '../rate-limits'
 import { registerRuntimeHandlers } from '../runtime'
 import {
@@ -203,6 +204,7 @@ export function registerCoreHandlers(
   registerExportHandlers()
   registerStatsHandlers(stats)
   registerMemoryHandlers(store)
+  registerStatvisCiSlotsHandlers()
   registerNotificationHandlers(store, runtime)
   registerNotebookHandlers(store)
   registerOnboardingHandlers(store)
