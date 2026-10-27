@@ -35,6 +35,7 @@ import type {
   UpdateInstallMode,
   UpdateInstallTrigger
 } from './updater-state'
+import { STATVIS_FORK_LATEST_DOWNLOAD_URL } from '../../../shared/statvis-fork'
 
 export type UpdaterSetupOptions = {
   getMainWindow?: () => BrowserWindow | null
@@ -204,7 +205,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     if (this.activeUpdateSource === 'release') {
       autoUpdater.setFeedURL({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: STATVIS_FORK_LATEST_DOWNLOAD_URL
       })
     }
     if (this.autoUpdaterInitialized) {
