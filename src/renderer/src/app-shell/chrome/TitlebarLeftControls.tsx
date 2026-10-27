@@ -26,6 +26,7 @@ import {
   registerTitlebarSidebarToggle,
   unregisterTitlebarSidebarToggle
 } from './titlebar-sidebar-toggle-ref'
+import { StatvisForkBadge } from './StatvisForkBadge'
 
 type TitlebarControlRole = 'menu' | 'toggle' | 'back' | 'forward'
 type TitlebarControls = Record<TitlebarControlRole, HTMLButtonElement | null>
@@ -158,6 +159,7 @@ export function TitlebarLeftControls({ layout }: { layout: AppChromeLayout }): R
         ) : (
           <div className="pl-2" />
         )}
+        <StatvisForkBadge />
         {layout.showSidebar && !hasCustomTitleBar && layout.showTitlebarAppName && (
           <ContextMenu>
             <ContextMenuTrigger asChild>
