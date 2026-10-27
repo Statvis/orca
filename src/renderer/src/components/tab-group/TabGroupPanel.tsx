@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/index'
 import TabBar from '../tab-bar/TabBar'
 
 import { TabBarQuickCommandsButton } from '../tab-bar/TabBarQuickCommandsButton'
+import { StatvisRevealWorktreeButton } from '../tab-bar/StatvisRevealWorktreeButton'
 import { TabGroupPaneActionsMenu } from './TabGroupPaneActionsMenu'
 import { useTabGroupWorkspaceModel } from './useTabGroupWorkspaceModel'
 import { closeTerminalTab } from '../terminal/terminal-tab-actions'
@@ -307,6 +308,7 @@ export default function TabGroupPanel({
               className={actionChromeClassName}
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
+              <StatvisRevealWorktreeButton worktreeId={worktreeId} />
               <TabBarQuickCommandsButton
                 worktreeId={worktreeId}
                 groupId={groupId}
