@@ -243,7 +243,8 @@ const macUsageDescriptions = {
   ...MACOS_FOLDER_USAGE_DESCRIPTIONS
 }
 // Developer ID team that signs every release-channel mac build.
-const ORCA_MAC_TEAM_ID = '6CX3WHS9HZ'
+// Why: Statvis fork builds are signed with the Statvis Analytics Developer ID.
+const ORCA_MAC_TEAM_ID = 'A43UMQC37J'
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -659,14 +660,15 @@ module.exports = {
         to: 'MacOS/orca-process-footprint'
       }
     ],
+    // Why arm64 only: Statvis has no Intel Macs, and explicit target arches override --arm64.
     target: [
       {
         target: 'dmg',
-        arch: ['x64', 'arm64']
+        arch: ['arm64']
       },
       {
         target: 'zip',
-        arch: ['x64', 'arm64']
+        arch: ['arm64']
       }
     ]
   },

@@ -1,0 +1,191 @@
+name: Statvis fork build
+
+# Builds, signs, notarizes and publishes the Statvis fork's macOS release for one
+# tag. Dispatched on statvis/main by the statvis-automation branch's scheduled
+# sync after it rebases the fork onto a new upstream stable release.
+# Mirrors upstream's release-mac-build.yml, minus upstream telemetry identity.
+
+run-name: Statvis fork build ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Fork release tag (draft release must already exist)
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+
+concurrency:
+  group: statvis-fork-build-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  orcad-template:
+    if: github.repository == 'Statvis/orca'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/qualified-orcad-template.yml
+    with:
+      ref: ${{ github.sha }}
+      # Upstream defaults to Blacksmith runners, which Statvis doesn't have; jobs would queue forever.
+      fast_runners: false
+
+  build-mac:
+    needs: orcad-template
+    runs-on: macos-15
+    timeout-minutes: 150
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      NODE_OPTIONS: --max-old-space-size=4096
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+
+      - name: Locate the pinned Node runtime cache
+        run: echo "ORCA_NODE_RUNTIME_CACHE_DIR=$HOME/Library/Caches/orca-node-runtime" >>"$GITHUB_ENV"
+
+      - name: Cache the pinned Node runtime
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/orca-node-runtime
+          key: orca-node-runtime-mac-${{ hashFiles('src/shared/node-runtime-pin.ts') }}
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-builder-mac-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-mac-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Verify macOS signing environment
+        run: node config/scripts/verify-macos-release-env.mjs
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify macOS entitlements
+        run: pnpm verify:macos-entitlements
+
+      - name: Stamp SV badge onto app icons
+        run: bash config/statvis-fork/stamp-sv-icons.sh
+
+      # Why at build time: the repo keeps upstream's default so upstream tests and code stay untouched.
+      - name: Point the updater at Statvis/orca
+        run: bash config/statvis-fork/set-release-repo.sh "$GITHUB_REPOSITORY"
+
+      # Why no ORCA_BUILD_IDENTITY / PostHog key: fork builds must not report into upstream telemetry.
+      - name: Build app
+        run: pnpm run build:release
+
+      - name: Download the orcad deployment template
+        uses: actions/download-artifact@v8
+        with:
+          name: orcad-template
+          path: out/orcad-template
+
+      - name: Package, sign, notarize and upload (macOS)
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 75
+          max_attempts: 2
+          retry_wait_seconds: 30
+          # Why plain electron-builder: Statvis ships Apple silicon only, and upstream's overlap script requires both arches.
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_RELEASE=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always -c.publish.releaseType=draft -c.publish.owner=${{ github.repository_owner }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Why: an app still pointing at upstream would silently never update (upstream builds fail our signature check).
+      - name: Verify the app updates from this repo
+        run: |
+          set -euo pipefail
+          resources=dist/mac-arm64/Orca.app/Contents/Resources
+          grep -qx "owner: $GITHUB_REPOSITORY_OWNER" "$resources/app-update.yml" || { cat "$resources/app-update.yml"; echo "::error::app-update.yml does not publish from $GITHUB_REPOSITORY_OWNER"; exit 1; }
+          LC_ALL=C grep -rqF "STATVIS_FORK_RELEASE_REPO = '$GITHUB_REPOSITORY'" "$resources/app.asar.unpacked" "$resources/app.asar" \
+            || { echo "::error::the packaged app does not update from $GITHUB_REPOSITORY"; exit 1; }
+          if LC_ALL=C grep -rqF "STATVIS_FORK_RELEASE_REPO = 'stablyai/orca'" "$resources/app.asar.unpacked" "$resources/app.asar"; then
+            echo "::error::the packaged app still updates from stablyai/orca"; exit 1
+          fi
+          echo "Packaged app updates from $GITHUB_REPOSITORY."
+
+      - name: Verify updater manifest and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          echo "$assets"
+          for required in latest-mac.yml orca-macos-arm64.dmg; do
+            grep -qx "$required" <<<"$assets" || { echo "::error::release is missing $required"; exit 1; }
+          done
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
+
+      - name: Close the failure tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title='Statvis fork automation is failing'
+          for n in $(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[].number'); do
+            gh issue close "$n" -R "$GITHUB_REPOSITORY" --comment "Recovered: published $TAG."
+          done
+
+  report-failure:
+    needs: [orcad-template, build-mac]
+    if: failure() && github.repository == 'Statvis/orca'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open a tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Why one open issue: the sync retries stale drafts, and each retry must not notify again.
+          title='Statvis fork automation is failing'
+          open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [[ -z "$open" ]]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --assignee jordanyeo \
+              --body "The fork build for ${{ inputs.tag }} failed: $RUN_URL. Fix the cause (often an upstream rename the fork code still uses), then re-run the sync with rebuild. The next successful publish closes this issue."
+          fi
