@@ -141,6 +141,10 @@ jobs:
         if: steps.resolve.outputs.build == 'true'
         uses: ./.github/actions/install-node-dependencies
 
+      - name: Check the updater still follows the fork's release repo
+        if: steps.resolve.outputs.build == 'true'
+        run: bash config/statvis-fork/check-release-repo-literals.sh
+
       - name: Typecheck the rebased fork
         if: steps.resolve.outputs.build == 'true'
         run: pnpm run typecheck
