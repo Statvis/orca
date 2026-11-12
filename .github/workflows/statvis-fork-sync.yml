@@ -145,6 +145,11 @@ jobs:
         if: steps.resolve.outputs.build == 'true'
         run: bash config/statvis-fork/check-release-repo-literals.sh
 
+      # Why: upstream moves build scripts often; a stale path only fails on the Mac runner after publishing a draft (v1.4.256).
+      - name: Check the fork build still calls scripts that exist
+        if: steps.resolve.outputs.build == 'true'
+        run: bash config/statvis-fork/check-build-workflow-paths.sh
+
       - name: Typecheck the rebased fork
         if: steps.resolve.outputs.build == 'true'
         run: pnpm run typecheck
